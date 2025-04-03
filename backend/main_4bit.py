@@ -127,7 +127,7 @@ async def query_local(data: QueryRequest):
 
         # Construct reference text for the system message
         reference_text = "\n\n".join([
-            f"Source: {doc.metadata.get('source', f'Document {i+1}')}\nContent: {doc.page_content}"
+            f"Source: {doc.metadata.get('source', f'Document {i+1}')}, Page: {doc.metadata.get('page', 'N/A')}\nContent: {doc.page_content}"
             for i, doc in enumerate(results)
         ])
 
@@ -161,9 +161,10 @@ async def query_local(data: QueryRequest):
         decoded_output = gemma_tokenizer.batch_decode(outputs)[0]
         answer_text = extract_answer(decoded_output).strip()
 
-        # Build reference list
+        # Build reference list with page number
         references = [{
             "source": doc.metadata.get("source", f"Doc {i+1}"),
+            "page": doc.metadata.get("page", "N/A"),
             "content": doc.page_content
         } for i, doc in enumerate(results)]
 

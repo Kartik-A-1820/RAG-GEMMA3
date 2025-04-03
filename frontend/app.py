@@ -41,9 +41,15 @@ with tab1:
 
                     st.subheader("🔗 Source References")
                     for i, ref in enumerate(result.get("references", []), start=1):
-                        st.markdown(f"**[{i}] Source:** {ref['source']}")
+                        page = ref.get("page", "N/A")
+                        st.markdown(f"**[{i}] Source:** {ref['source']} (Page {page})")
+
                         preview = " ".join(ref["content"].split()[:100])
                         st.markdown(f"`{preview}...`")
+
+                        with st.expander("🔍 View full reference"):
+                            st.markdown(ref["content"])
+
                         st.markdown("---")
                 else:
                     st.error("❌ Error fetching answer. Try again.")

@@ -14,8 +14,10 @@ accelerate
 langchain
 langchain-community
 langchain-huggingface
-langchain-chroma>=0.1.2
 sentence-transformers
+accelerate>=0.26.0
+langchain-chroma>=0.1.2
+
 
 # --- File Parsing & Loaders ---
 pypdf

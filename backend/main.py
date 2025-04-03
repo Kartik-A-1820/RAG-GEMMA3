@@ -110,45 +110,67 @@ async def ingest_file(file: UploadFile = File(...)):
 async def query_local(data: QueryRequest):
     try:
         query = data.query
+
+        # Perform similarity search on vectorstore
         results = vectorstore.similarity_search(query, k=3)
         if not results:
-            return {"answer": "Not found relevant answer.", "references": []}
+            return {
+                "answer": "Not found relevant answer.",
+                "references": []
+            }
 
+        # Construct reference text for the system message
         reference_text = "\n\n".join([
-            f"Source: {doc.metadata.get('source', f'Document {i+1}')}\nContent: {doc.page_content}"
+            f"Source: {doc.metadata.get('source', f'Document {i+1}')}, Page: {doc.metadata.get('page', 'N/A')}\nContent: {doc.page_content}"
             for i, doc in enumerate(results)
         ])
 
+        # System message to enforce grounded answer only
+        system_instruction = (
+            "You are a helpful assistant. Use ONLY the provided references below to answer the user's question. "
+            "If the answer is not present or cannot be determined from the references, reply with: "
+            "'Not found in the provided reference.'\n\n"
+            "References:\n" + reference_text
+        )
+
+        # Prepare prompt for Gemma model
         prompt = [[
-            {"role": "system", "content": [{"type": "text", "text": "Use the references to answer user's question."}]},
+            {"role": "system", "content": [{"type": "text", "text": system_instruction}]},
             {"role": "user", "content": [{"type": "text", "text": query}]},
         ]]
 
+        # Tokenize input
         inputs = gemma_tokenizer.apply_chat_template(
             prompt,
             add_generation_prompt=True,
             tokenize=True,
             return_dict=True,
-            return_tensors="pt",
+            return_tensors="pt"
         ).to(gemma_model.device)
 
+        # Generate output
         with torch.inference_mode():
             outputs = gemma_model.generate(**inputs, max_new_tokens=1024)
 
-        decoded = gemma_tokenizer.batch_decode(outputs)[0]
-        answer_text = extract_answer(decoded).strip()
+        decoded_output = gemma_tokenizer.batch_decode(outputs)[0]
+        answer_text = extract_answer(decoded_output).strip()
+
+        # Build reference list with page number
+        references = [{
+            "source": doc.metadata.get("source", f"Doc {i+1}"),
+            "page": doc.metadata.get("page", "N/A"),
+            "content": doc.page_content
+        } for i, doc in enumerate(results)]
 
         return {
             "answer": answer_text,
-            "references": [{
-                "source": doc.metadata.get("source", f"Doc {i+1}"),
-                "content": doc.page_content
-            } for i, doc in enumerate(results)]
+            "references": references
         }
 
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="An error occurred during processing.")
+
 
 @app.post("/summarize_pdf")
 async def summarize_pdf(file: UploadFile = File(...)):
