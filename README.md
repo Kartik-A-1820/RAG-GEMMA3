@@ -13,7 +13,6 @@ A full-stack **Retrieval-Augmented Generation (RAG)** project powered by **Googl
 - [💡 Features](#-features)
 - [📚 Applications](#-applications)
 - [📸 Screenshots](#-screenshots)
-- [📜 License](#-license)
 
 ---
 
@@ -90,14 +89,26 @@ python run_project.py
 ## ▶️ How to Run (Manual Option)
 If you want to run manually:
 ```bash
-# Activate venv
-source venv/bin/activate      # On Linux/macOS
-venv\Scripts\activate         # On Windows
+# 1. Clone the repository
+git clone https://github.com/Kartik-A-1820/RAG-GEMMA3.git
+cd RAG-GEMMA3
 
-# Start backend
+# 2. Create a virtual environment
+python -m venv venv
+
+# 3. Activate the virtual environment
+# For Windows:
+venv\Scripts\activate
+# For Linux/macOS:
+source venv/bin/activate
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Start the FastAPI backend (in one terminal)
 uvicorn Backend.main_4bit:app --host 0.0.0.0 --port 8000 --reload
 
-# In another terminal, start frontend
+# 6. Start the Streamlit frontend (in another terminal)
 streamlit run Frontend/app.py
 ```
 
@@ -152,12 +163,6 @@ streamlit run Frontend/app.py
 
 ---
 
-## 📜 License
-
-MIT License. Feel free to clone, contribute, or fork.
-
----
-
 ## 🙌 Credits
 - [Google AI](https://ai.google.dev/gemma) for releasing Gemma-3
 - [LangChain](https://www.langchain.com)
@@ -166,5 +171,5 @@ MIT License. Feel free to clone, contribute, or fork.
 
 ---
 
-> 💬 Have questions or want to collaborate? Reach out at [LinkedIn](https://www.linkedin.com/in/kartik-anagawadi)
+> 💬 Have questions or want to collaborate? Reach out at [LinkedIn](https://www.linkedin.com/in/kartik-anagawadi-4b33a81b6/)
 
