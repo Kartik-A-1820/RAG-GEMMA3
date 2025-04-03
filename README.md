@@ -50,7 +50,8 @@ This was created as an **AI engineering experiment** to:
 ```
 RAG-GEMMA3/
 ├── Backend/
-│   ├── main_4bit.py           # FastAPI backend using quantized Gemma-3
+│   ├── main.py                # FastAPI backend
+│   ├── main_4bit.py           # FastAPI backend using 4bit quantized Gemma-3
 │   └── __init__.py
 ├── Frontend/
 │   └── app.py                 # Streamlit interface for users
