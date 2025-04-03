@@ -1,0 +1,27 @@
+# --- Backend API ---
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+
+# --- Quantized LLM (Gemma-3) ---
+transformers @ git+https://github.com/huggingface/transformers@v4.49.0-Gemma-3
+torch
+bitsandbytes
+accelerate
+
+# --- LangChain for RAG ---
+langchain
+langchain-community
+langchain-huggingface
+langchain-chroma>=0.1.2
+sentence-transformers
+
+# --- File Parsing & Loaders ---
+pypdf
+python-docx
+docx2txt
+
+# --- Frontend ---
+streamlit
+requests
