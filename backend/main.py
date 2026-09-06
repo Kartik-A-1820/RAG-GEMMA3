@@ -102,6 +102,11 @@ async def reset_metrics():
     return {"status": "reset"}
 
 
+@app.get("/graph")
+async def graph(limit: int = 40):
+    return retriever.graph.snapshot(limit=max(5, min(limit, 120)))
+
+
 @app.post("/ingest")
 async def ingest_file(file: UploadFile = File(...)):
     started = time.perf_counter()

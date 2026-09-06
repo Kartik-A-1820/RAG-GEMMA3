@@ -176,3 +176,23 @@ class KnowledgeGraphIndex:
             "relations": len(self.edges),
             "documents": len(self.doc_to_entities),
         }
+
+    def snapshot(self, limit: int = 40) -> dict:
+        entity_weights = Counter({
+            entity: len(doc_ids) for entity, doc_ids in self.entity_to_docs.items()
+        })
+        top_entities = entity_weights.most_common(limit)
+        allowed = {entity for entity, _weight in top_entities}
+        edges = [
+            {"source": left, "target": right, "weight": weight}
+            for (left, right), weight in self.edges.most_common(limit * 2)
+            if left in allowed and right in allowed
+        ]
+        return {
+            "stats": self.stats(),
+            "nodes": [
+                {"id": entity, "label": entity, "weight": weight}
+                for entity, weight in top_entities
+            ],
+            "edges": edges[:limit],
+        }

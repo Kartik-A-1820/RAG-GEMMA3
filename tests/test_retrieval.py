@@ -130,11 +130,14 @@ def test_graph_index_extracts_entities_and_retrieves(tmp_path):
     }
 
     graph.build(docs)
+    snapshot = graph.snapshot(limit=5)
     hits = graph.search("How does GraphRAG use Chroma and BM25?", k=2)
 
     assert "bm25" in extract_entities(docs["doc-a"].page_content)
     assert graph.stats()["entities"] > 0
     assert graph.stats()["relations"] > 0
+    assert snapshot["nodes"]
+    assert snapshot["edges"]
     assert hits[0].doc_id == "doc-a"
 
 

@@ -13,6 +13,7 @@ Local-first Hybrid GraphRAG platform for document question answering and summari
 - Reciprocal-rank fusion across dense, BM25, and graph rankings
 - Pluggable reranker interface with a no-op default and optional local CrossEncoder
 - Live runtime monitoring for ingest/query latency, retrieval counts, graph size, and errors
+- Streamlit dashboard for querying, GraphRAG visualization, and live monitoring
 - Offline retrieval evaluation with Recall@K, Precision@K, HitRate@K, NDCG@K, and MRR
 - Resource-aware configuration for 4-bit loading, CPU offload, small chunks, and bounded context
 - Docker-friendly local deployment
@@ -74,7 +75,7 @@ RAG-GEMMA3/
 │       ├── monitoring.py        # Runtime metrics monitor
 │       └── run_retrieval_eval.py
 ├── frontend/
-│   └── app.py                   # Streamlit UI
+│   └── app.py                   # Streamlit GraphRAG dashboard
 ├── config/
 │   └── local.example.env        # Local-only runtime defaults
 ├── tests/
@@ -157,6 +158,7 @@ python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 - `GET /health` returns local runtime configuration and graph index stats.
 - `GET /metrics` returns live ingest/query latency, retrieval counts, graph stats, recent queries, and recent errors.
 - `POST /metrics/reset` clears in-memory runtime metrics.
+- `GET /graph` returns top graph nodes and relations for UI visualization.
 - `POST /ingest` ingests PDF, TXT, DOCX, or CSV into Chroma, BM25, and the local graph index.
 - `POST /query/local` retrieves with dense + BM25 + graph + RRF and answers using the local model.
 - `POST /summarize_pdf` keeps the summarization workflow with lazy local generation.
@@ -185,6 +187,15 @@ python -m backend.evaluation.run_retrieval_eval eval_results.jsonl --k 5
 ```
 
 Use `/metrics` during demos to show the system is not just answering questions, but also measuring retrieval behavior and operational health.
+
+## Streamlit Dashboard
+
+The Streamlit UI includes:
+
+- Ask tab with document ingestion, Hybrid GraphRAG query execution, retrieval counts, answers, and source references
+- GraphRAG tab with local knowledge-graph visualization, top entities, and strongest relations
+- Monitor tab with live ingest/query metrics, p95 latency, retrieval averages, graph size, recent queries, and recent errors
+- Summarize tab for local document summarization
 
 ## No Paid APIs
 
