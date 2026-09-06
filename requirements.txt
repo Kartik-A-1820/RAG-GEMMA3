@@ -12,6 +12,7 @@ accelerate
 
 # --- LangChain for RAG ---
 langchain
+langchain-core
 langchain-community
 langchain-huggingface
 sentence-transformers
@@ -27,3 +28,7 @@ docx2txt
 # --- Frontend ---
 streamlit
 requests
+
+# --- Local evaluation/testing ---
+pytest
+httpx

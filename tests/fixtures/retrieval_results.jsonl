@@ -1,0 +1,2 @@
+{"query": "refund policy", "relevant_ids": ["chunk-a"], "retrieved_ids": ["chunk-b", "chunk-a"]}
+{"query": "graph retrieval", "relevant_ids": ["chunk-c"], "retrieved_ids": ["chunk-c", "chunk-d"]}

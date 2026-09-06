@@ -1,8 +1,8 @@
 import streamlit as st
 import requests
 
-st.set_page_config(page_title="RAG with Gemma-3", layout="wide")
-st.title("📄🧠 RAG Project — LangChain + Gemma-3")
+st.set_page_config(page_title="Local Hybrid GraphRAG", layout="wide")
+st.title("📄🧠 Local Hybrid GraphRAG — Gemma-3")
 
 tab1, tab2 = st.tabs(["🔍 Ask Questions (Gemma3)", "📝 Summarize PDF"])
 
@@ -23,7 +23,7 @@ with tab1:
                 st.error("❌ Failed to ingest document.")
 
     st.markdown("---")
-    st.subheader("2. Ask Your Query (Powered by Gemma3)")
+    st.subheader("2. Ask Your Query (Dense + BM25 + RRF)")
 
     query = st.text_input("Type your question here:")
 
@@ -36,13 +36,22 @@ with tab1:
                 if response.status_code == 200:
                     result = response.json()
                     st.success("✅ Answer Generated!")
+                    debug = result.get("retrieval_debug", {})
+                    if debug:
+                        st.caption(
+                            "Retrieval: "
+                            f"{debug.get('dense_count', 0)} dense, "
+                            f"{debug.get('sparse_count', 0)} BM25, "
+                            f"{debug.get('fused_count', 0)} fused candidates"
+                        )
                     st.subheader("Answer")
                     st.markdown(result["answer"])
 
                     st.subheader("🔗 Source References")
                     for i, ref in enumerate(result.get("references", []), start=1):
                         page = ref.get("page", "N/A")
-                        st.markdown(f"**[{i}] Source:** {ref['source']} (Page {page})")
+                        chunk = ref.get("chunk", "N/A")
+                        st.markdown(f"**[{i}] Source:** {ref['source']} (Page {page}, Chunk {chunk})")
 
                         preview = " ".join(ref["content"].split()[:100])
                         st.markdown(f"`{preview}...`")

@@ -4,3 +4,7 @@ __pycache__/
 .env
 requirements_old.txt
 temp/
+data/uploads/
+data/chroma/
+data/offload/
+.pytest_cache/

@@ -1,0 +1,12 @@
+services:
+  rag-api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - config/local.example.env
+    environment:
+      RAG_DEVICE: cpu
+      RAG_LOAD_IN_4BIT: "false"
+    volumes:
+      - ./data:/app/data

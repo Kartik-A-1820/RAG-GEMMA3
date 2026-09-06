@@ -10,8 +10,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.resolve()
 venv_dir = project_root / "venv"
 requirements = project_root / "requirements.txt"
-frontend_file = project_root / "Frontend" / "app.py"
-backend_module = "backend.main_4bit:app"  # uvicorn format
+frontend_file = project_root / "frontend" / "app.py"
+backend_module = os.getenv("RAG_BACKEND_MODULE", "backend.main_4bit:app")
 
 # --- 1. Ensure Python 3.11 ---
 if not sys.version.startswith("3.11"):
@@ -45,7 +45,7 @@ else:
     print("✅ venv already exists. Skipping installation.")
 
 # --- 4. Launch backend server ---
-print("🚀 Launching FastAPI backend on 0.0.0.0:8000 with --reload...")
+print(f"🚀 Launching FastAPI backend on 0.0.0.0:8000 using {backend_module}...")
 backend_proc = subprocess.Popen([
     str(python_path), "-m", "uvicorn", backend_module,
     "--host", "0.0.0.0", "--port", "8000", "--reload"
