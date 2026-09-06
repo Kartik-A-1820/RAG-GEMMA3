@@ -162,3 +162,4 @@ This project does not require OpenAI, Anthropic, Cohere, Pinecone, Weaviate Clou
 - Keep chunks and top-k modest to avoid oversized prompts.
 - Leave `RAG_ENABLE_RERANKER=false` until the base flow is working.
 - Expect first model and embedding downloads to need internet unless the artifacts already exist in the Hugging Face cache.
+- Gemma model repositories may require Hugging Face login and accepted model terms. For smoke tests on locked-down laptops, set `RAG_MODEL_ID` to another local Hugging Face causal LM directory after downloading it.

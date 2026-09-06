@@ -23,7 +23,7 @@ class LocalGemmaGenerator:
         if self.model is not None and self.tokenizer is not None:
             return
 
-        from transformers import AutoTokenizer, Gemma3ForCausalLM
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         kwargs = {
             "low_cpu_mem_usage": True,
@@ -48,25 +48,45 @@ class LocalGemmaGenerator:
             kwargs["torch_dtype"] = torch.float32
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.settings.model_id)
-        self.model = Gemma3ForCausalLM.from_pretrained(self.settings.model_id, **kwargs).eval()
+        self.model = AutoModelForCausalLM.from_pretrained(self.settings.model_id, **kwargs).eval()
 
     def generate(self, system_instruction: str, user_query: str, max_new_tokens: int | None = None) -> str:
         self._load()
-        prompt = [[
-            {"role": "system", "content": [{"type": "text", "text": system_instruction}]},
-            {"role": "user", "content": [{"type": "text", "text": user_query}]},
-        ]]
-        inputs = self.tokenizer.apply_chat_template(
-            prompt,
-            add_generation_prompt=True,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
-        ).to(self.model.device)
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_query},
+        ]
+        if self.tokenizer.chat_template:
+            try:
+                inputs = self.tokenizer.apply_chat_template(
+                    [messages],
+                    add_generation_prompt=True,
+                    tokenize=True,
+                    return_dict=True,
+                    return_tensors="pt",
+                ).to(self.model.device)
+            except TypeError:
+                gemma_messages = [
+                    {"role": "system", "content": [{"type": "text", "text": system_instruction}]},
+                    {"role": "user", "content": [{"type": "text", "text": user_query}]},
+                ]
+                inputs = self.tokenizer.apply_chat_template(
+                    [gemma_messages],
+                    add_generation_prompt=True,
+                    tokenize=True,
+                    return_dict=True,
+                    return_tensors="pt",
+                ).to(self.model.device)
+        else:
+            prompt = f"System: {system_instruction}\n\nUser: {user_query}\n\nAssistant:"
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
 
         with torch.inference_mode():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens or self.settings.max_new_tokens,
+                do_sample=False,
             )
-        return extract_answer(self.tokenizer.batch_decode(outputs)[0]).strip()
+        input_length = inputs["input_ids"].shape[-1]
+        generated_tokens = outputs[:, input_length:]
+        return extract_answer(self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)[0]).strip()
