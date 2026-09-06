@@ -35,11 +35,14 @@ if not venv_dir.exists():
     subprocess.run([str(pip_path), "install", "--upgrade", "pip"])
     subprocess.run([str(pip_path), "install", "-r", str(requirements)], check=True)
 
-    print("⚡ Installing GPU-enabled PyTorch...")
+    torch_index_url = os.getenv("RAG_TORCH_INDEX_URL", "https://download.pytorch.org/whl/cu130")
+    torch_package = os.getenv("RAG_TORCH_PACKAGE", "torch==2.14.0+cu130")
+    print(f"⚡ Installing GPU-enabled PyTorch from {torch_index_url}...")
     subprocess.run([
         str(pip_path), "install",
-        "torch", "torchvision", "torchaudio",
-        "--index-url", "https://download.pytorch.org/whl/cu118"
+        "--force-reinstall",
+        torch_package,
+        "--index-url", torch_index_url
     ], check=True)
 else:
     print("✅ venv already exists. Skipping installation.")

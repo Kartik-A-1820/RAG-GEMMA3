@@ -112,6 +112,7 @@ RAG_RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements-cuda-cu130.txt
 uvicorn backend.main_4bit:app --host 0.0.0.0 --port 8000
 streamlit run frontend/app.py
 ```
@@ -129,6 +130,12 @@ docker compose up --build
 ```
 
 The Docker default uses CPU mode. For GPU acceleration, install the matching PyTorch build on the host or customize the image for your CUDA stack.
+
+For the tested local Windows laptop setup with NVIDIA GTX 1650 Ti, driver `610.62`, and CUDA UMD `13.3`, the project venv uses `torch==2.14.0+cu130` from the official PyTorch CUDA 13.0 wheel index. Verify CUDA with:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
 
 ## API
 

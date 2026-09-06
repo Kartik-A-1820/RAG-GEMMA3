@@ -1,0 +1,7 @@
+# Optional CUDA runtime override for NVIDIA systems.
+# Install after requirements.txt:
+#   python -m pip install -r requirements.txt
+#   python -m pip install -r requirements-cuda-cu130.txt
+
+--index-url https://download.pytorch.org/whl/cu130
+torch==2.14.0+cu130
