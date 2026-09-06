@@ -19,3 +19,27 @@ def mean_reciprocal_rank(relevant_ids: set[str], retrieved_ids: list[str]) -> fl
         if retrieved_id in relevant_ids:
             return 1.0 / index
     return 0.0
+
+
+def hit_rate_at_k(relevant_ids: set[str], retrieved_ids: list[str], k: int) -> float:
+    if not relevant_ids:
+        return 0.0
+    return 1.0 if relevant_ids & set(retrieved_ids[:k]) else 0.0
+
+
+def dcg_at_k(relevant_ids: set[str], retrieved_ids: list[str], k: int) -> float:
+    score = 0.0
+    for index, retrieved_id in enumerate(retrieved_ids[:k], start=1):
+        if retrieved_id in relevant_ids:
+            score += 1.0 / __import__("math").log2(index + 1)
+    return score
+
+
+def ndcg_at_k(relevant_ids: set[str], retrieved_ids: list[str], k: int) -> float:
+    if not relevant_ids:
+        return 0.0
+    ideal_hits = min(len(relevant_ids), k)
+    ideal = sum(1.0 / __import__("math").log2(index + 1) for index in range(1, ideal_hits + 1))
+    if ideal == 0:
+        return 0.0
+    return dcg_at_k(relevant_ids, retrieved_ids, k) / ideal

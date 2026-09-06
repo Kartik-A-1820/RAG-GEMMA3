@@ -1,17 +1,20 @@
 # Local Hybrid GraphRAG with Gemma-3
 
-Local-first Retrieval-Augmented Generation platform for document question answering and summarization. The project is designed for a practical 4 GB VRAM-class laptop, avoids paid APIs, and keeps the original FastAPI + Streamlit workflow while upgrading retrieval into a hybrid stack.
+Local-first Hybrid GraphRAG platform for document question answering and summarization. It is designed for laptop-class hardware, avoids paid APIs, and combines vector search, sparse lexical retrieval, lightweight knowledge-graph retrieval, fusion, reranking hooks, and evaluation monitoring.
 
 ## What This Demonstrates
 
-- Local LLM serving with Gemma-3 through Hugging Face Transformers
+- Local LLM serving with Gemma-3 or another Hugging Face causal LM
 - Modular document ingestion for PDF, TXT, DOCX, and CSV
 - Dense vector retrieval with Chroma and SentenceTransformers
-- Sparse lexical retrieval with an in-repo BM25 implementation
-- Reciprocal-rank fusion across dense and sparse rankings
+- Sparse lexical retrieval with in-repo BM25
+- Lightweight local knowledge graph built from chunk entities and co-occurrence relations
+- Graph retrieval fused with dense and sparse candidates
+- Reciprocal-rank fusion across dense, BM25, and graph rankings
 - Pluggable reranker interface with a no-op default and optional local CrossEncoder
+- Live runtime monitoring for ingest/query latency, retrieval counts, graph size, and errors
+- Offline retrieval evaluation with Recall@K, Precision@K, HitRate@K, NDCG@K, and MRR
 - Resource-aware configuration for 4-bit loading, CPU offload, small chunks, and bounded context
-- Evaluation scaffolding for retrieval metrics
 - Docker-friendly local deployment
 
 ## Architecture
@@ -23,11 +26,15 @@ Documents
 Modular ingestion
    |-- parsing: PDF / TXT / DOCX / CSV
    |-- hashing and duplicate detection
-   |-- chunking with practical local defaults
+   |-- local chunking
    |
    v
-Dense index: Chroma + all-MiniLM-L6-v2
-Sparse index: BM25 rebuilt from local Chroma contents
+Dense index: Chroma + SentenceTransformers
+Sparse index: BM25
+Graph index: entities + co-occurrence relations
+   |
+   v
+Dense candidates + BM25 candidates + graph candidates
    |
    v
 Reciprocal-rank fusion
@@ -36,33 +43,36 @@ Reciprocal-rank fusion
 Optional local reranker
    |
    v
-Grounded Gemma-3 generation
+Grounded local LLM generation
    |
    v
-Answer + source references + retrieval diagnostics
+Answer + source references + retrieval diagnostics + monitor metrics
 ```
 
-The next portfolio milestone is a lightweight knowledge-graph layer for entity and relation extraction, graph traversal candidates, and graph-aware answer citations. This branch lays the retrieval and evaluation foundation for that work.
+This is intentionally a practical local GraphRAG architecture rather than a cloud-scale graph database system. The graph layer uses lightweight entity extraction and persisted JSON adjacency so it can run on a 4 GB VRAM-class laptop. Neo4j, LLM-based relation extraction, and graph community summaries are natural next upgrades.
 
-If you already have documents in an older local Chroma directory, reingest them after switching to this branch. New chunks include stable `chunk_id` metadata so dense and BM25 results can fuse cleanly.
+If you already have documents in an older local Chroma directory, reingest them after switching to this version. New chunks include stable `chunk_id` metadata so dense, BM25, and graph results can fuse cleanly.
 
 ## Project Structure
 
 ```text
 RAG-GEMMA3/
 ├── backend/
-│   ├── main.py                  # FastAPI app, local hybrid retrieval pipeline
+│   ├── main.py                  # FastAPI app and local GraphRAG pipeline
 │   ├── main_4bit.py             # 4-bit default entrypoint
 │   ├── config.py                # Environment-driven local runtime settings
 │   ├── ingestion.py             # File loading, hashing, chunking
-│   ├── llm.py                   # Lazy local Gemma generator
+│   ├── llm.py                   # Lazy local causal LM generator
 │   ├── retrieval/
 │   │   ├── bm25.py              # Sparse retrieval
 │   │   ├── fusion.py            # Reciprocal-rank fusion
-│   │   ├── hybrid.py            # Dense + sparse orchestration
+│   │   ├── graph.py             # Local knowledge graph extraction/retrieval
+│   │   ├── hybrid.py            # Dense + BM25 + graph orchestration
 │   │   └── rerankers.py         # Pluggable reranker interface
 │   └── evaluation/
-│       └── metrics.py           # Recall, precision, MRR scaffolding
+│       ├── metrics.py           # Retrieval quality metrics
+│       ├── monitoring.py        # Runtime metrics monitor
+│       └── run_retrieval_eval.py
 ├── frontend/
 │   └── app.py                   # Streamlit UI
 ├── config/
@@ -72,6 +82,7 @@ RAG-GEMMA3/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
+├── requirements-cuda-cu130.txt
 └── run_project.py
 ```
 
@@ -87,12 +98,16 @@ Recommended 4 GB VRAM-class defaults:
 
 ```env
 RAG_MODEL_ID=google/gemma-3-1b-it
+RAG_EMBEDDING_MODEL=all-MiniLM-L6-v2
+RAG_CHROMA_DIR=./data/chroma
+RAG_GRAPH_PATH=./data/graph_index.json
 RAG_LOAD_IN_4BIT=true
 RAG_DEVICE=auto
 RAG_CHUNK_SIZE=1200
 RAG_CHUNK_OVERLAP=180
 RAG_DENSE_K=8
 RAG_SPARSE_K=8
+RAG_GRAPH_K=8
 RAG_FUSED_K=5
 RAG_MAX_CONTEXT_CHARS=6000
 RAG_MAX_NEW_TOKENS=512
@@ -139,14 +154,27 @@ python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 
 ## API
 
-- `GET /health` returns local runtime configuration.
-- `POST /ingest` ingests PDF, TXT, DOCX, or CSV into the local Chroma index and BM25 layer.
-- `POST /query/local` retrieves with dense + BM25 + RRF and answers using local Gemma.
-- `POST /summarize_pdf` keeps the original summarization workflow with lazy local generation.
+- `GET /health` returns local runtime configuration and graph index stats.
+- `GET /metrics` returns live ingest/query latency, retrieval counts, graph stats, recent queries, and recent errors.
+- `POST /metrics/reset` clears in-memory runtime metrics.
+- `POST /ingest` ingests PDF, TXT, DOCX, or CSV into Chroma, BM25, and the local graph index.
+- `POST /query/local` retrieves with dense + BM25 + graph + RRF and answers using the local model.
+- `POST /summarize_pdf` keeps the summarization workflow with lazy local generation.
 
-## Evaluation
+## Evaluation And Monitoring
 
-The initial retrieval metrics live in `backend/evaluation/metrics.py` and are covered by tests. You can evaluate saved retrieval results from a small local JSONL benchmark:
+The evaluation module supports:
+
+- Recall@K
+- Precision@K
+- HitRate@K
+- NDCG@K
+- Mean Reciprocal Rank
+- Live latency and retrieval-count monitoring
+- Recent error tracking
+- Graph index size tracking
+
+Evaluate saved retrieval results from a local JSONL benchmark:
 
 ```json
 {"query": "What is the refund window?", "relevant_ids": ["chunk-a"], "retrieved_ids": ["chunk-b", "chunk-a"]}
@@ -156,11 +184,11 @@ The initial retrieval metrics live in `backend/evaluation/metrics.py` and are co
 python -m backend.evaluation.run_retrieval_eval eval_results.jsonl --k 5
 ```
 
-Next, compare dense-only, BM25-only, hybrid RRF, and reranked hybrid retrieval with Recall@K, Precision@K, and MRR.
+Use `/metrics` during demos to show the system is not just answering questions, but also measuring retrieval behavior and operational health.
 
 ## No Paid APIs
 
-This project does not require OpenAI, Anthropic, Cohere, Pinecone, Weaviate Cloud, or other paid/cloud APIs. Models, embeddings, vector storage, lexical retrieval, reranking, and evaluation are intended to run locally.
+This project does not require OpenAI, Anthropic, Cohere, Pinecone, Weaviate Cloud, or other paid/cloud APIs. Models, embeddings, vector storage, lexical retrieval, graph retrieval, reranking, monitoring, and evaluation are intended to run locally.
 
 ## Hardware Notes
 

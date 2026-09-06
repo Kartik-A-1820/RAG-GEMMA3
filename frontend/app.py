@@ -42,6 +42,7 @@ with tab1:
                             "Retrieval: "
                             f"{debug.get('dense_count', 0)} dense, "
                             f"{debug.get('sparse_count', 0)} BM25, "
+                            f"{debug.get('graph_count', 0)} graph, "
                             f"{debug.get('fused_count', 0)} fused candidates"
                         )
                     st.subheader("Answer")

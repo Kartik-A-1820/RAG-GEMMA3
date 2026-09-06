@@ -6,6 +6,7 @@ from langchain_core.documents import Document
 from backend.config import Settings
 from backend.retrieval.bm25 import BM25Index
 from backend.retrieval.fusion import RankedItem, reciprocal_rank_fusion
+from backend.retrieval.graph import KnowledgeGraphIndex
 from backend.retrieval.rerankers import BaseReranker, CrossEncoderReranker, NoOpReranker
 
 
@@ -14,7 +15,9 @@ class RetrievalResult:
     documents: list[Document]
     dense_count: int
     sparse_count: int
+    graph_count: int
     fused_count: int
+    graph_stats: dict
 
 
 class HybridRetriever:
@@ -23,6 +26,7 @@ class HybridRetriever:
         self.settings = settings
         self.reranker = reranker or self._build_reranker(settings)
         self.bm25 = BM25Index()
+        self.graph = KnowledgeGraphIndex(settings.graph_path)
         self.documents_by_id: dict[str, Document] = {}
         self.rebuild_sparse_index()
 
@@ -66,6 +70,7 @@ class HybridRetriever:
             self.documents_by_id[chunk_id] = document
             bm25_documents[chunk_id] = text
         self.bm25.build(bm25_documents)
+        self.graph.build(self.documents_by_id)
 
     def retrieve(self, query: str) -> RetrievalResult:
         dense_docs = self.vectorstore.similarity_search(query, k=self.settings.dense_k)
@@ -78,7 +83,10 @@ class HybridRetriever:
         sparse_hits = self.bm25.search(query, k=self.settings.sparse_k)
         sparse_ranked = [RankedItem(doc_id=hit.doc_id, score=hit.score) for hit in sparse_hits]
 
-        fused = reciprocal_rank_fusion([dense_ranked, sparse_ranked], k=self.settings.rrf_k)
+        graph_hits = self.graph.search(query, k=self.settings.graph_k)
+        graph_ranked = [RankedItem(doc_id=hit.doc_id, score=hit.score) for hit in graph_hits]
+
+        fused = reciprocal_rank_fusion([dense_ranked, sparse_ranked, graph_ranked], k=self.settings.rrf_k)
         candidates = []
         seen = set()
         for item in fused:
@@ -93,7 +101,9 @@ class HybridRetriever:
             documents=reranked,
             dense_count=len(dense_docs),
             sparse_count=len(sparse_hits),
+            graph_count=len(graph_hits),
             fused_count=len(candidates),
+            graph_stats=self.graph.stats(),
         )
 
     def _doc_key(self, document: Document) -> str:

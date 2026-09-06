@@ -1,4 +1,5 @@
 import os
+import time
 import traceback
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -8,6 +9,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from pydantic import BaseModel
 
 from backend.config import settings
+from backend.evaluation.monitoring import MetricsMonitor
 from backend.ingestion import load_and_split, save_upload
 from backend.llm import LocalGemmaGenerator
 from backend.retrieval.hybrid import HybridRetriever
@@ -42,6 +44,7 @@ vectorstore = Chroma(
 )
 retriever = HybridRetriever(vectorstore=vectorstore, settings=settings)
 generator = LocalGemmaGenerator(settings=settings)
+monitor = MetricsMonitor()
 
 
 def build_reference_text(documents) -> str:
@@ -84,28 +87,48 @@ async def health():
         "embedding_model": settings.embedding_model,
         "load_in_4bit": settings.load_in_4bit,
         "reranker_enabled": settings.enable_reranker,
+        "graph": retriever.graph.stats(),
     }
+
+
+@app.get("/metrics")
+async def metrics():
+    return monitor.snapshot(graph_stats=retriever.graph.stats())
+
+
+@app.post("/metrics/reset")
+async def reset_metrics():
+    monitor.reset()
+    return {"status": "reset"}
 
 
 @app.post("/ingest")
 async def ingest_file(file: UploadFile = File(...)):
+    started = time.perf_counter()
     file_path = await save_upload(file, settings)
     try:
         file_hash, chunks = load_and_split(file_path, file.filename or file_path.name, settings)
         added, count = retriever.add_documents(chunks, file_hash)
         if not added:
+            monitor.record_ingest(file.filename or file_path.name, 0, (time.perf_counter() - started) * 1000, True)
             return {"message": "Document already ingested.", "status": "already_ingested"}
+        monitor.record_ingest(file.filename or file_path.name, count, (time.perf_counter() - started) * 1000)
         return {
             "message": "File ingested successfully.",
             "num_documents": count,
-            "retrieval": "dense+bm25+rrf",
+            "retrieval": "dense+bm25+graph+rrf",
+            "graph": retriever.graph.stats(),
         }
+    except Exception as exc:
+        monitor.record_error("/ingest", repr(exc))
+        raise
     finally:
         file_path.unlink(missing_ok=True)
 
 
 @app.post("/query/local")
 async def query_local(data: QueryRequest):
+    started = time.perf_counter()
     try:
         result = retriever.retrieve(data.query)
         if not result.documents:
@@ -120,16 +143,28 @@ async def query_local(data: QueryRequest):
         )
 
         answer_text = generator.generate(system_instruction, data.query)
+        monitor.record_query(
+            data.query,
+            (time.perf_counter() - started) * 1000,
+            result.dense_count,
+            result.sparse_count,
+            result.graph_count,
+            result.fused_count,
+            len(result.documents),
+        )
         return {
             "answer": answer_text,
             "references": build_references(result.documents),
             "retrieval_debug": {
                 "dense_count": result.dense_count,
                 "sparse_count": result.sparse_count,
+                "graph_count": result.graph_count,
                 "fused_count": result.fused_count,
+                "graph": result.graph_stats,
             },
         }
-    except Exception:
+    except Exception as exc:
+        monitor.record_error("/query/local", repr(exc))
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="An error occurred during processing.")
 

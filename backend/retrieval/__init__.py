@@ -1,1 +1,1 @@
-"""Retrieval components for local hybrid RAG."""
+"""Retrieval components for local hybrid GraphRAG."""
