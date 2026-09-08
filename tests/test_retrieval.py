@@ -19,6 +19,7 @@ from backend.retrieval.graph import (
     GraphEntity,
     GraphRelation,
     KnowledgeGraphIndex,
+    LocalLLMGraphExtractor,
     extract_entities,
 )
 from backend.retrieval.rerankers import NoOpReranker
@@ -206,6 +207,26 @@ def test_kuzu_graph_backend_persists_typed_graph(tmp_path):
     assert graph.stats()["backend"] == "kuzu"
     assert (tmp_path / "kuzu_graph").exists()
     assert graph.snapshot()["edges"][0]["relation"] == "POWERS"
+
+
+def test_llm_graph_extractor_accepts_common_spo_json_shape():
+    extractor = LocalLLMGraphExtractor(Settings())
+    response = """
+    {
+      "knowledge_graph": {
+        "entities": ["Qwen", "GraphRAG", "Kuzu"],
+        "relations": [
+          {"subject": "Qwen", "predicate": "improves", "object": "GraphRAG"},
+          {"subject": "Kuzu", "predicate": "stores", "object": "GraphRAG"}
+        ]
+      }
+    }
+    """
+
+    graph_doc = extractor._parse_response(response)
+
+    assert {entity.name for entity in graph_doc.entities} == {"qwen", "graphrag", "kuzu"}
+    assert {relation.relation for relation in graph_doc.relations} == {"IMPROVES", "STORES"}
 
 
 def test_monitor_records_runtime_metrics():

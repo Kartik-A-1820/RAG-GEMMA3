@@ -177,8 +177,12 @@ class LocalLLMGraphExtractor:
         if start < 0 or end <= start:
             raise ValueError("Extractor did not return JSON.")
         payload = json.loads(response[start:end + 1])
+        if "knowledge_graph" in payload:
+            payload = payload["knowledge_graph"]
         entities_by_name: dict[str, GraphEntity] = {}
         for item in payload.get("entities", []):
+            if isinstance(item, str):
+                item = {"name": item, "type": "OTHER", "confidence": 0.65}
             name = str(item.get("name", "")).strip()
             if not name:
                 continue
@@ -192,15 +196,15 @@ class LocalLLMGraphExtractor:
 
         relations = []
         for item in payload.get("relations", []):
-            source = normalize_entity(str(item.get("source", "")))
-            target = normalize_entity(str(item.get("target", "")))
+            source = normalize_entity(str(item.get("source") or item.get("subject") or ""))
+            target = normalize_entity(str(item.get("target") or item.get("object") or ""))
             if source not in entities_by_name or target not in entities_by_name or source == target:
                 continue
             relations.append(
                 GraphRelation(
                     source_id=entities_by_name[source].id,
                     target_id=entities_by_name[target].id,
-                    relation=str(item.get("type", "RELATED_TO")).upper()[:48],
+                    relation=str(item.get("type") or item.get("predicate") or "RELATED_TO").upper()[:48],
                     confidence=float(item.get("confidence", 0.7)),
                     evidence=str(item.get("evidence", ""))[:280],
                 )
