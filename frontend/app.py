@@ -98,7 +98,7 @@ def render_graph(graph: dict) -> None:
 
 
 st.title("Local Hybrid GraphRAG")
-st.caption("Dense Chroma retrieval + BM25 + local knowledge graph + RRF + local LLM")
+st.caption("Dense Chroma retrieval + BM25 + Kuzu knowledge graph + RRF + local LLM")
 
 health, health_error = api_get("/health")
 if health_error:
@@ -108,10 +108,11 @@ else:
     metric_row([
         ("Runtime", health.get("runtime", "unknown")),
         ("4-bit", str(health.get("load_in_4bit", False))),
+        ("Graph DB", health.get("graph_backend", graph_stats.get("backend", "unknown"))),
         ("Graph Entities", graph_stats.get("entities", 0)),
         ("Graph Relations", graph_stats.get("relations", 0)),
-        ("Graph Docs", graph_stats.get("documents", 0)),
     ])
+    st.sidebar.caption(f"Graph extraction: {health.get('graph_extraction_mode', 'rules')}")
 
 tab_ask, tab_graph, tab_monitor, tab_summary = st.tabs([
     "Ask",
@@ -187,7 +188,12 @@ with tab_graph:
         metric_row([
             ("Entities", stats.get("entities", 0)),
             ("Relations", stats.get("relations", 0)),
+            ("Relation Types", stats.get("relation_types", 0)),
             ("Documents", stats.get("documents", 0)),
+        ])
+        metric_row([
+            ("LLM Extracted", stats.get("llm_extractions", 0)),
+            ("Fallback Extracted", stats.get("fallback_extractions", 0)),
         ])
         render_graph(graph)
         if graph.get("nodes"):
@@ -243,7 +249,12 @@ with tab_monitor:
         metric_row([
             ("Entities", graph_metrics.get("entities", 0)),
             ("Relations", graph_metrics.get("relations", 0)),
+            ("Relation Types", graph_metrics.get("relation_types", 0)),
             ("Documents", graph_metrics.get("documents", 0)),
+        ])
+        metric_row([
+            ("LLM Extracted", graph_metrics.get("llm_extractions", 0)),
+            ("Fallback Extracted", graph_metrics.get("fallback_extractions", 0)),
         ])
 
         recent_queries = metrics.get("recent_queries", [])

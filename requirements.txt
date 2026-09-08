@@ -32,3 +32,6 @@ requests
 # --- Local evaluation/testing ---
 pytest
 httpx
+
+# --- Embedded local graph database ---
+kuzu

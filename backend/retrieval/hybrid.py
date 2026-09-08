@@ -26,7 +26,7 @@ class HybridRetriever:
         self.settings = settings
         self.reranker = reranker or self._build_reranker(settings)
         self.bm25 = BM25Index()
-        self.graph = KnowledgeGraphIndex(settings.graph_path)
+        self.graph = KnowledgeGraphIndex(settings=settings)
         self.documents_by_id: dict[str, Document] = {}
         self.rebuild_sparse_index()
 

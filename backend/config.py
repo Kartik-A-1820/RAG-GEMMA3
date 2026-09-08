@@ -25,6 +25,12 @@ class Settings:
     upload_dir: Path = Path(os.getenv("RAG_UPLOAD_DIR", PROJECT_ROOT / "data" / "uploads"))
     offload_dir: Path = Path(os.getenv("RAG_OFFLOAD_DIR", PROJECT_ROOT / "data" / "offload"))
     graph_path: Path = Path(os.getenv("RAG_GRAPH_PATH", PROJECT_ROOT / "data" / "graph_index.json"))
+    graph_db_path: Path = Path(os.getenv("RAG_GRAPH_DB_PATH", PROJECT_ROOT / "data" / "kuzu_graph"))
+    graph_backend: str = os.getenv("RAG_GRAPH_BACKEND", "kuzu")
+    graph_extraction_mode: str = os.getenv("RAG_GRAPH_EXTRACTION_MODE", "rules")
+    graph_extractor_model: str = os.getenv("RAG_GRAPH_EXTRACTOR_MODEL", os.getenv("RAG_MODEL_ID", "google/gemma-3-1b-it"))
+    graph_extraction_max_new_tokens: int = int(os.getenv("RAG_GRAPH_EXTRACTION_MAX_NEW_TOKENS", "512"))
+    graph_extraction_max_chunk_chars: int = int(os.getenv("RAG_GRAPH_EXTRACTION_MAX_CHUNK_CHARS", "2200"))
     collection_name: str = os.getenv("RAG_COLLECTION", "document_vector_collection")
     chunk_size: int = int(os.getenv("RAG_CHUNK_SIZE", "1200"))
     chunk_overlap: int = int(os.getenv("RAG_CHUNK_OVERLAP", "180"))
@@ -45,6 +51,7 @@ class Settings:
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.offload_dir.mkdir(parents=True, exist_ok=True)
         self.graph_path.parent.mkdir(parents=True, exist_ok=True)
+        self.graph_db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()

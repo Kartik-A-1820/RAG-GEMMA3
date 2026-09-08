@@ -20,7 +20,7 @@ settings.ensure_dirs()
 
 app = FastAPI(
     title="Local Hybrid GraphRAG API",
-    description="Zero-paid-API RAG backend with dense retrieval, BM25, RRF, and local Gemma generation.",
+    description="Zero-paid-API RAG backend with dense retrieval, BM25, Kuzu GraphRAG, RRF, and local generation.",
 )
 
 app.add_middleware(
@@ -87,6 +87,9 @@ async def health():
         "embedding_model": settings.embedding_model,
         "load_in_4bit": settings.load_in_4bit,
         "reranker_enabled": settings.enable_reranker,
+        "graph_backend": settings.graph_backend,
+        "graph_extraction_mode": settings.graph_extraction_mode,
+        "graph_extractor_model": settings.graph_extractor_model,
         "graph": retriever.graph.stats(),
     }
 

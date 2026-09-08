@@ -1,6 +1,6 @@
 # Local Hybrid GraphRAG with Gemma-3
 
-Local-first Hybrid GraphRAG platform for document question answering and summarization. It is designed for laptop-class hardware, avoids paid APIs, and combines vector search, sparse lexical retrieval, lightweight knowledge-graph retrieval, fusion, reranking hooks, and evaluation monitoring.
+Local-first Hybrid GraphRAG platform for document question answering and summarization. It is designed for laptop-class hardware, avoids paid APIs, and combines vector search, sparse lexical retrieval, Kuzu graph storage, optional local LLM-based entity/relation extraction, fusion, reranking hooks, and evaluation monitoring.
 
 ## What This Demonstrates
 
@@ -8,7 +8,9 @@ Local-first Hybrid GraphRAG platform for document question answering and summari
 - Modular document ingestion for PDF, TXT, DOCX, and CSV
 - Dense vector retrieval with Chroma and SentenceTransformers
 - Sparse lexical retrieval with in-repo BM25
-- Lightweight local knowledge graph built from chunk entities and co-occurrence relations
+- Kuzu embedded graph database for local entity, chunk, and relationship storage
+- Optional local LLM graph extraction for typed entities and relationships
+- Safe rule-based fallback extraction when the local model cannot return clean JSON
 - Graph retrieval fused with dense and sparse candidates
 - Reciprocal-rank fusion across dense, BM25, and graph rankings
 - Pluggable reranker interface with a no-op default and optional local CrossEncoder
@@ -32,7 +34,9 @@ Modular ingestion
    v
 Dense index: Chroma + SentenceTransformers
 Sparse index: BM25
-Graph index: entities + co-occurrence relations
+Graph index: Kuzu entities + typed relationships
+   |-- extraction: local LLM JSON triples or rule fallback
+   |-- storage: Entity, Chunk, MENTIONED_IN, RELATED_TO
    |
    v
 Dense candidates + BM25 candidates + graph candidates
@@ -50,7 +54,9 @@ Grounded local LLM generation
 Answer + source references + retrieval diagnostics + monitor metrics
 ```
 
-This is intentionally a practical local GraphRAG architecture rather than a cloud-scale graph database system. The graph layer uses lightweight entity extraction and persisted JSON adjacency so it can run on a 4 GB VRAM-class laptop. Neo4j, LLM-based relation extraction, and graph community summaries are natural next upgrades.
+This is intentionally a practical local GraphRAG architecture rather than a cloud service architecture. The graph layer uses Kuzu, an embedded local graph database, so it avoids the operational overhead of running a separate Neo4j server while still storing first-class graph nodes and relationships. The app also writes a compact JSON graph snapshot for fast reloads, tests, and UI visualization.
+
+For constrained machines, `RAG_GRAPH_EXTRACTION_MODE=rules` is the fastest option. For the stronger portfolio demo, set `RAG_GRAPH_EXTRACTION_MODE=llm` and use a small local instruction model to extract JSON entities and relations. If the model fails to produce valid JSON for a chunk, the system records a fallback extraction and still builds the graph instead of failing ingestion.
 
 If you already have documents in an older local Chroma directory, reingest them after switching to this version. New chunks include stable `chunk_id` metadata so dense, BM25, and graph results can fuse cleanly.
 
@@ -67,7 +73,7 @@ RAG-GEMMA3/
 │   ├── retrieval/
 │   │   ├── bm25.py              # Sparse retrieval
 │   │   ├── fusion.py            # Reciprocal-rank fusion
-│   │   ├── graph.py             # Local knowledge graph extraction/retrieval
+│   │   ├── graph.py             # Kuzu graph store + local graph extraction/retrieval
 │   │   ├── hybrid.py            # Dense + BM25 + graph orchestration
 │   │   └── rerankers.py         # Pluggable reranker interface
 │   └── evaluation/
@@ -102,6 +108,12 @@ RAG_MODEL_ID=google/gemma-3-1b-it
 RAG_EMBEDDING_MODEL=all-MiniLM-L6-v2
 RAG_CHROMA_DIR=./data/chroma
 RAG_GRAPH_PATH=./data/graph_index.json
+RAG_GRAPH_DB_PATH=./data/kuzu_graph
+RAG_GRAPH_BACKEND=kuzu
+RAG_GRAPH_EXTRACTION_MODE=rules
+RAG_GRAPH_EXTRACTOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct
+RAG_GRAPH_EXTRACTION_MAX_NEW_TOKENS=512
+RAG_GRAPH_EXTRACTION_MAX_CHUNK_CHARS=2200
 RAG_LOAD_IN_4BIT=true
 RAG_DEVICE=auto
 RAG_CHUNK_SIZE=1200
@@ -121,6 +133,15 @@ Keep the reranker disabled on constrained hardware unless retrieval quality need
 RAG_ENABLE_RERANKER=true
 RAG_RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
+
+To enable local LLM knowledge graph extraction:
+
+```env
+RAG_GRAPH_EXTRACTION_MODE=llm
+RAG_GRAPH_EXTRACTOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct
+```
+
+For this graph-extraction flow, Qwen is usually a better first choice than Gemma on a small laptop because the Qwen2.5 model cards emphasize stronger structured output and JSON behavior. Gemma-3 1B remains a good small local answer-generation target, but its Hugging Face repository can require login and accepted model terms.
 
 ## Run
 
@@ -158,7 +179,7 @@ python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 - `GET /health` returns local runtime configuration and graph index stats.
 - `GET /metrics` returns live ingest/query latency, retrieval counts, graph stats, recent queries, and recent errors.
 - `POST /metrics/reset` clears in-memory runtime metrics.
-- `GET /graph` returns top graph nodes and relations for UI visualization.
+- `GET /graph` returns top Kuzu-backed graph nodes and typed relations for UI visualization.
 - `POST /ingest` ingests PDF, TXT, DOCX, or CSV into Chroma, BM25, and the local graph index.
 - `POST /query/local` retrieves with dense + BM25 + graph + RRF and answers using the local model.
 - `POST /summarize_pdf` keeps the summarization workflow with lazy local generation.
@@ -175,6 +196,7 @@ The evaluation module supports:
 - Live latency and retrieval-count monitoring
 - Recent error tracking
 - Graph index size tracking
+- LLM extraction and fallback extraction counters
 
 Evaluate saved retrieval results from a local JSONL benchmark:
 
@@ -193,7 +215,7 @@ Use `/metrics` during demos to show the system is not just answering questions, 
 The Streamlit UI includes:
 
 - Ask tab with document ingestion, Hybrid GraphRAG query execution, retrieval counts, answers, and source references
-- GraphRAG tab with local knowledge-graph visualization, top entities, and strongest relations
+- GraphRAG tab with Kuzu-backed knowledge-graph visualization, typed entities, strongest relations, and extraction counters
 - Monitor tab with live ingest/query metrics, p95 latency, retrieval averages, graph size, recent queries, and recent errors
 - Summarize tab for local document summarization
 
@@ -203,7 +225,8 @@ This project does not require OpenAI, Anthropic, Cohere, Pinecone, Weaviate Clou
 
 ## Hardware Notes
 
-- Use Gemma-3 1B or another small instruction model first.
+- Use Gemma-3 1B, Qwen2.5 0.5B/1.5B Instruct, or another small instruction model first.
+- Prefer Qwen2.5 1.5B Instruct for local graph extraction when disk and memory allow; use Qwen2.5 0.5B Instruct or the rule fallback on tighter machines.
 - Prefer 4-bit loading on compatible NVIDIA GPUs.
 - Keep chunks and top-k modest to avoid oversized prompts.
 - Leave `RAG_ENABLE_RERANKER=false` until the base flow is working.

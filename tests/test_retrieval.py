@@ -1,4 +1,5 @@
 from langchain_core.documents import Document
+import pytest
 
 from backend.config import Settings
 from backend.evaluation.metrics import (
@@ -13,7 +14,13 @@ from backend.evaluation.run_retrieval_eval import evaluate_rows
 from backend.retrieval.hybrid import HybridRetriever
 from backend.retrieval.bm25 import BM25Index
 from backend.retrieval.fusion import RankedItem, reciprocal_rank_fusion
-from backend.retrieval.graph import KnowledgeGraphIndex, extract_entities
+from backend.retrieval.graph import (
+    GraphDocument,
+    GraphEntity,
+    GraphRelation,
+    KnowledgeGraphIndex,
+    extract_entities,
+)
 from backend.retrieval.rerankers import NoOpReranker
 
 
@@ -139,6 +146,66 @@ def test_graph_index_extracts_entities_and_retrieves(tmp_path):
     assert snapshot["nodes"]
     assert snapshot["edges"]
     assert hits[0].doc_id == "doc-a"
+
+
+class FakeGraphExtractor:
+    def extract(self, text: str) -> GraphDocument:
+        return GraphDocument(
+            entities=[
+                GraphEntity(id="gemma", name="gemma", type="MODEL", confidence=0.9),
+                GraphEntity(id="graphrag", name="graphrag", type="TECH", confidence=0.9),
+            ],
+            relations=[
+                GraphRelation(
+                    source_id="gemma",
+                    target_id="graphrag",
+                    relation="POWERS",
+                    confidence=0.85,
+                    evidence="Gemma powers GraphRAG extraction.",
+                )
+            ],
+        )
+
+
+def test_graph_index_supports_typed_entities_and_relations(tmp_path):
+    graph = KnowledgeGraphIndex(tmp_path / "graph.json")
+    graph.extractor = FakeGraphExtractor()
+
+    graph.build({
+        "doc-a": Document(
+            page_content="Gemma powers GraphRAG extraction.",
+            metadata={"source": "a.txt", "chunk_index": 0},
+        )
+    })
+    snapshot = graph.snapshot(limit=5)
+
+    assert snapshot["nodes"][0]["type"] in {"MODEL", "TECH"}
+    assert snapshot["edges"][0]["relation"] == "POWERS"
+    assert graph.stats()["relation_types"] == 1
+    assert graph.search("Gemma GraphRAG", k=1)[0].doc_id == "doc-a"
+
+
+def test_kuzu_graph_backend_persists_typed_graph(tmp_path):
+    pytest.importorskip("kuzu")
+    settings = Settings(
+        graph_path=tmp_path / "graph.json",
+        graph_db_path=tmp_path / "kuzu_graph",
+        graph_backend="kuzu",
+        graph_extraction_mode="rules",
+    )
+    graph = KnowledgeGraphIndex(settings=settings)
+    graph.extractor = FakeGraphExtractor()
+
+    graph.build({
+        "doc-a": Document(
+            page_content="Gemma powers GraphRAG extraction.",
+            metadata={"source": "a.txt", "chunk_index": 0},
+        )
+    })
+
+    assert graph.stats()["backend"] == "kuzu"
+    assert (tmp_path / "kuzu_graph").exists()
+    assert graph.snapshot()["edges"][0]["relation"] == "POWERS"
 
 
 def test_monitor_records_runtime_metrics():
