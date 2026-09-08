@@ -172,10 +172,10 @@ The local `.env` on the tested machine points to `F:\AI\Models\Qwen-GraphRAG\Qwe
 ```bash
 python -m venv venv
 venv\Scripts\activate
-pip install -r requirements.txt
-pip install -r requirements-cuda-cu130.txt
-uvicorn backend.main_4bit:app --host 0.0.0.0 --port 8000
-streamlit run frontend/app.py
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-cuda-cu130.txt
+python -m uvicorn backend.main_4bit:app --host 0.0.0.0 --port 8000
+python -m streamlit run frontend/app.py
 ```
 
 Or use the launcher:
