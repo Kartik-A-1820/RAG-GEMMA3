@@ -1,10 +1,10 @@
-# Local Hybrid GraphRAG with Gemma-3
+# Local Hybrid GraphRAG with Qwen + Gemma
 
 Local-first Hybrid GraphRAG platform for document question answering and summarization. It is designed for laptop-class hardware, avoids paid APIs, and combines vector search, sparse lexical retrieval, Kuzu graph storage, optional local LLM-based entity/relation extraction, fusion, reranking hooks, and evaluation monitoring.
 
 ## What This Demonstrates
 
-- Local LLM serving with Gemma-3 or another Hugging Face causal LM
+- Local LLM serving with Qwen, Gemma, or another Hugging Face causal LM
 - Modular document ingestion for PDF, TXT, DOCX, and CSV
 - Dense vector retrieval with Chroma and SentenceTransformers
 - Sparse lexical retrieval with in-repo BM25
@@ -56,7 +56,7 @@ Answer + source references + retrieval diagnostics + monitor metrics
 
 This is intentionally a practical local GraphRAG architecture rather than a cloud service architecture. The graph layer uses Kuzu, an embedded local graph database, so it avoids the operational overhead of running a separate Neo4j server while still storing first-class graph nodes and relationships. The app also writes a compact JSON graph snapshot for fast reloads, tests, and UI visualization.
 
-For constrained machines, `RAG_GRAPH_EXTRACTION_MODE=rules` is the fastest option. For the stronger portfolio demo, set `RAG_GRAPH_EXTRACTION_MODE=llm` and use a small local instruction model to extract JSON entities and relations. If the model fails to produce valid JSON for a chunk, the system records a fallback extraction and still builds the graph instead of failing ingestion.
+For the strongest portfolio demo, use Qwen2.5 1.5B Instruct with `RAG_GRAPH_EXTRACTION_MODE=llm` so the same local model can answer questions and extract typed graph entities/relations. For very constrained machines, switch to `RAG_GRAPH_EXTRACTION_MODE=rules`; if the model fails to produce valid JSON for a chunk, the system records a fallback extraction and still builds the graph instead of failing ingestion.
 
 If you already have documents in an older local Chroma directory, reingest them after switching to this version. New chunks include stable `chunk_id` metadata so dense, BM25, and graph results can fuse cleanly.
 
@@ -104,13 +104,13 @@ cp config/local.example.env .env
 Recommended 4 GB VRAM-class defaults:
 
 ```env
-RAG_MODEL_ID=google/gemma-3-1b-it
+RAG_MODEL_ID=Qwen/Qwen2.5-1.5B-Instruct
 RAG_EMBEDDING_MODEL=all-MiniLM-L6-v2
 RAG_CHROMA_DIR=./data/chroma
 RAG_GRAPH_PATH=./data/graph_index.json
 RAG_GRAPH_DB_PATH=./data/kuzu_graph
 RAG_GRAPH_BACKEND=kuzu
-RAG_GRAPH_EXTRACTION_MODE=rules
+RAG_GRAPH_EXTRACTION_MODE=llm
 RAG_GRAPH_EXTRACTOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct
 RAG_GRAPH_EXTRACTION_MAX_NEW_TOKENS=512
 RAG_GRAPH_EXTRACTION_MAX_CHUNK_CHARS=2200
@@ -141,7 +141,31 @@ RAG_GRAPH_EXTRACTION_MODE=llm
 RAG_GRAPH_EXTRACTOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct
 ```
 
-For this graph-extraction flow, Qwen is usually a better first choice than Gemma on a small laptop because the Qwen2.5 model cards emphasize stronger structured output and JSON behavior. Gemma-3 1B remains a good small local answer-generation target, but its Hugging Face repository can require login and accepted model terms.
+For this graph-extraction flow, Qwen is the recommended first choice. The Qwen2.5 model family emphasizes instruction following, structured data understanding, and JSON generation, which is exactly what typed entity/relation extraction needs. Gemma remains supported as a local answer-generation model, but many official Gemma repositories require Hugging Face login and accepted model terms.
+
+## Model Selection
+
+Recommended default:
+
+```env
+RAG_MODEL_ID=Qwen/Qwen2.5-1.5B-Instruct
+RAG_GRAPH_EXTRACTOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct
+RAG_GRAPH_EXTRACTION_MODE=llm
+```
+
+Local model options:
+
+| Model | Best Use | Notes |
+| --- | --- | --- |
+| `Qwen/Qwen2.5-1.5B-Instruct` | Primary local RAG + graph extraction | Best current balance for this laptop: small enough to run locally, better JSON behavior for KG triples. |
+| `Qwen/Qwen2.5-0.5B-Instruct` | Faster fallback | Lower quality, but useful when memory or latency is tight. |
+| `google/gemma-3-270m-it` | Very fast Gemma experiment | Tiny and likely faster than Gemma-3 1B, but lower reasoning and extraction quality. |
+| `google/functiongemma-270m-it` | Fast structured/function-style experiments | Interesting for extraction-style prompts because it is tuned for text-only function calling. |
+| `google/gemma-3-1b-it` | Small Gemma answer generation | Good laptop-scale Gemma target, but access may be gated. |
+| `google/gemma-3n-E2B-it` | Efficient Gemma-family edge model | Designed for low-resource devices, but larger and more complex than the 270M/1B options. |
+| `google/gemma-4-E2B-it` | Newer Gemma-family experiment | Worth tracking, but the 4 GB VRAM laptop path should start with Qwen2.5 1.5B or Gemma 270M/1B first. |
+
+The local `.env` on the tested machine points to `F:\AI\Models\RAG-GEMMA3\Qwen2.5-1.5B-Instruct` and `F:\AI\Models\RAG-GEMMA3\all-MiniLM-L6-v2` so model files and caches stay off the C drive.
 
 ## Run
 
@@ -225,8 +249,8 @@ This project does not require OpenAI, Anthropic, Cohere, Pinecone, Weaviate Clou
 
 ## Hardware Notes
 
-- Use Gemma-3 1B, Qwen2.5 0.5B/1.5B Instruct, or another small instruction model first.
-- Prefer Qwen2.5 1.5B Instruct for local graph extraction when disk and memory allow; use Qwen2.5 0.5B Instruct or the rule fallback on tighter machines.
+- Use Qwen2.5 1.5B Instruct as the default local model for this project.
+- Prefer Qwen2.5 1.5B Instruct for graph extraction; use Qwen2.5 0.5B Instruct, Gemma-3 270M, or the rule fallback on tighter machines.
 - Prefer 4-bit loading on compatible NVIDIA GPUs.
 - Keep chunks and top-k modest to avoid oversized prompts.
 - Leave `RAG_ENABLE_RERANKER=false` until the base flow is working.
