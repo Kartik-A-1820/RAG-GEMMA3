@@ -1,4 +1,4 @@
-# Local Hybrid GraphRAG with Qwen + Gemma
+# Qwen-GraphRAG
 
 Local-first Hybrid GraphRAG platform for document question answering and summarization. It is designed for laptop-class hardware, avoids paid APIs, and combines vector search, sparse lexical retrieval, Kuzu graph storage, optional local LLM-based entity/relation extraction, fusion, reranking hooks, and evaluation monitoring.
 
@@ -63,13 +63,13 @@ If you already have documents in an older local Chroma directory, reingest them 
 ## Project Structure
 
 ```text
-RAG-GEMMA3/
+Qwen-GraphRAG/
 ├── backend/
 │   ├── main.py                  # FastAPI app and local GraphRAG pipeline
 │   ├── main_4bit.py             # 4-bit default entrypoint
 │   ├── config.py                # Environment-driven local runtime settings
 │   ├── ingestion.py             # File loading, hashing, chunking
-│   ├── llm.py                   # Lazy local causal LM generator
+│   ├── llm.py                   # Lazy local Qwen/Gemma-compatible causal LM generator
 │   ├── retrieval/
 │   │   ├── bm25.py              # Sparse retrieval
 │   │   ├── fusion.py            # Reciprocal-rank fusion
@@ -165,7 +165,7 @@ Local model options:
 | `google/gemma-3n-E2B-it` | Efficient Gemma-family edge model | Designed for low-resource devices, but larger and more complex than the 270M/1B options. |
 | `google/gemma-4-E2B-it` | Newer Gemma-family experiment | Worth tracking, but the 4 GB VRAM laptop path should start with Qwen2.5 1.5B or Gemma 270M/1B first. |
 
-The local `.env` on the tested machine points to `F:\AI\Models\RAG-GEMMA3\Qwen2.5-1.5B-Instruct` and `F:\AI\Models\RAG-GEMMA3\all-MiniLM-L6-v2` so model files and caches stay off the C drive.
+The local `.env` on the tested machine points to `F:\AI\Models\Qwen-GraphRAG\Qwen2.5-1.5B-Instruct` and `F:\AI\Models\Qwen-GraphRAG\all-MiniLM-L6-v2` so model files and caches stay off the C drive.
 
 ## Run
 

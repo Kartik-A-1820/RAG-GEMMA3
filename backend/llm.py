@@ -13,7 +13,7 @@ def extract_answer(conversation_text: str) -> str:
     return conversation_text.strip()
 
 
-class LocalGemmaGenerator:
+class LocalCausalLMGenerator:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.tokenizer = None

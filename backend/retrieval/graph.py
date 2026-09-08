@@ -152,14 +152,14 @@ class LocalLLMGraphExtractor:
         if self.generator is None:
             from dataclasses import replace
 
-            from backend.llm import LocalGemmaGenerator
+            from backend.llm import LocalCausalLMGenerator
 
             extractor_settings = replace(
                 self.settings,
                 model_id=self.settings.graph_extractor_model,
                 max_new_tokens=self.settings.graph_extraction_max_new_tokens,
             )
-            self.generator = LocalGemmaGenerator(extractor_settings)
+            self.generator = LocalCausalLMGenerator(extractor_settings)
         return self.generator
 
     def _system_prompt(self) -> str:

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from backend.config import settings
 from backend.evaluation.monitoring import MetricsMonitor
 from backend.ingestion import load_and_split, save_upload
-from backend.llm import LocalGemmaGenerator
+from backend.llm import LocalCausalLMGenerator
 from backend.retrieval.hybrid import HybridRetriever
 
 
@@ -43,7 +43,7 @@ vectorstore = Chroma(
     persist_directory=str(settings.chroma_dir),
 )
 retriever = HybridRetriever(vectorstore=vectorstore, settings=settings)
-generator = LocalGemmaGenerator(settings=settings)
+generator = LocalCausalLMGenerator(settings=settings)
 monitor = MetricsMonitor()
 
 
